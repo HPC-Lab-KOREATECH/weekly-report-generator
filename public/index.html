@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<title>Weekly Report Generator</title>
+<head>
+    <style>
+        #drop_zone {
+            border: 2px dashed #bbb;
+            height: 100px;
+            line-height: 100px;
+            text-align: center;
+            font-size: 20px;
+        }
+        #file_info {
+            text-align: center;
+            font-size: 16px;
+            height: 20px;
+            color: #000;  // 텍스트 색상 변경
+        }
+        #output {
+            position: fixed; 
+            top: 160px; 
+            bottom: 0; 
+            left: 0; 
+            right: 0;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="drop_zone">Drop files here or click to upload</div>
+    <div id="file_info"></div>
+    <textarea id="output"></textarea>
+    <input type="file" id="file_input" style="display: none;">
+
+    <script>
+        var dropZone = document.getElementById('drop_zone');
+        var fileInfo = document.getElementById('file_info');
+        var output = document.getElementById('output');
+        var fileInput = document.getElementById('file_input');
+
+        dropZone.ondragover = function(event) {
+            event.preventDefault();
+            this.style.backgroundColor = '#ccc';
+        };
+        dropZone.ondragleave = function() {
+            this.style.backgroundColor = '';
+        };
+        dropZone.ondrop = function(event) {
+            event.preventDefault();
+            this.style.backgroundColor = '';
+            handleFile(event.dataTransfer.files[0]);
+        };
+
+        dropZone.onclick = function() {
+            fileInput.click();
+        };
+
+        fileInput.onchange = function() {
+            handleFile(this.files[0]);
+        }
+
+        function handleFile(file) {
+            uploadFile(file);
+            fileInfo.innerText = 'Uploaded file: ' + file.name + ' (' + file.size + ' bytes)'; // 파일명과 크기 표시
+        }
+
+        function uploadFile(file) {
+            var url = '/upload';
+            var xhr = new XMLHttpRequest();
+            var formData = new FormData();
+            xhr.open('POST', url, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    output.value = xhr.responseText; // 결과를 textarea에 표시
+                } else if (xhr.status !== 200) {
+                    alert('An error occurred!');
+                }
+            };
+            formData.append('pptx', file);
+            xhr.send(formData);
+        }
+    </script>
+</body>
+</html>
