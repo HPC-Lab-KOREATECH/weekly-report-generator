@@ -15,6 +15,7 @@ app.post('/upload', upload.single('pptx'), async(req, res) => {
         try {
             result = await generateWeeklyMarkdown(path);
         } catch (e) {
+			console.error(e);
             result = 'error';
         }
         res.send(result);
@@ -107,7 +108,7 @@ const generateWeeklyMarkdown = async(pptx) => {
                 }
 
                 if (type === 'title') {
-                    if (!['to do', 'have done', 'other things'].some(e => e === text.toLowerCase())) {
+                    if (!['to do', 'have done', 'other things', 'last meeting'].some(e => e === text.toLowerCase())) {
                         summary[lastTitle.toLowerCase()]?.push({
                             level,
                             text
@@ -120,7 +121,7 @@ const generateWeeklyMarkdown = async(pptx) => {
 
                 if (!isMainSlide && type === undefined && text) {
                     let key = lastTitle.toLowerCase();
-                    if (key !== 'other things') {
+                    if (key !== 'other things' && key !== 'last meeting') {
                         summary[key]?.push({
                             level,
                             text
