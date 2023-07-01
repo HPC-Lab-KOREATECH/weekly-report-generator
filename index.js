@@ -15,11 +15,11 @@ app.post('/upload', upload.single('pptx'), async(req, res) => {
         try {
             result = await generateWeeklyMarkdown(path);
         } catch (e) {
-			console.error(e);
+            console.error(e);
             result = 'error';
         }
         res.send(result);
-		fs.unlinkSync(path);
+        fs.unlinkSync(path);
     } else {
         res.status(400).send('File not exists.');
     }
@@ -34,28 +34,56 @@ const getType = content => content['p:nvSpPr'][0]['p:nvPr'][0]['p:ph']?.[0]['$']
 const TitleKeys = {
     TO_DO: 'to do',
     HAVE_DONE: 'have done',
-    OTHER_THINGS: 'other things'
+    OTHER_THINGS: 'other things',
+    LAST_MEETING: 'last meeting'
 };
 
-const toMarkdown = (list) => {
-    let map = Array.from(new Set(list.filter(e => e.level === 0).map(e => e.text))).reduce((a, k) => (a[k] = [], a), {});
-    let currentKey;
-    for (let e of list) {
-        if (e.level === 0) {
-            currentKey = e.text;
-        } else {
-            map[currentKey].push(e);
+const listify = (map, text, level = -1) => {
+    if (Object.keys(map).length === 0) {
+        return [{text, level}];
+    } else {
+		let target = Object.keys(map).map(k => listify(map[k], k, level + 1));
+		let current = level === -1 ? [] : [{text, level}];
+		return [...current, ...target.flat()];
+	}
+}
+
+const mapify = (list) => {
+    let parents = [];
+    let lastLevel = 0;
+    for (let i = 0; i < list.length; i++) {
+        let e = list[i];
+        if (lastLevel < e.level) {
+            if (i >= 1) {
+                parents.push(list[i - 1].text);
+                lastLevel = e.level;
+            }
+        } else if (lastLevel > e.level) {
+            lastLevel = e.level;
+            parents = parents.slice(0, e.level);
         }
+        e.parents = [...parents];
     }
-    let flatten = [];
-    for (let text in map) {
-        flatten.push({
-            level: 0,
-            text
-        });
-        flatten = [...flatten, ...map[text]];
+    let map = {};
+    for (let e of list) {
+        let targetMap = map;
+        for (let p of e.parents) {
+            if (targetMap[p]) {
+                targetMap = targetMap[p];
+            } else {
+                targetMap[p] = {};
+            }
+        }
+        targetMap[e.text] = {
+            ...targetMap[e.text]
+        };
     }
-    return flatten.map(e => '  '.repeat(e.level + 2) + ' - ' + e.text).join('\n');
+    return map;
+}
+
+const toMarkdown = (list) => {
+	list = listify(mapify(list));
+    return list.map(e => '  '.repeat(e.level + 2) + ' - ' + e.text).join('\n');
 };
 
 const generateWeeklyMarkdown = async(pptx) => {
@@ -108,7 +136,7 @@ const generateWeeklyMarkdown = async(pptx) => {
                 }
 
                 if (type === 'title') {
-                    if (!['to do', 'have done', 'other things', 'last meeting'].some(e => e === text.toLowerCase())) {
+                    if (!Object.values(TitleKeys).some(e => e === text.toLowerCase())) {
                         summary[lastTitle.toLowerCase()]?.push({
                             level,
                             text
@@ -121,7 +149,7 @@ const generateWeeklyMarkdown = async(pptx) => {
 
                 if (!isMainSlide && type === undefined && text) {
                     let key = lastTitle.toLowerCase();
-                    if (key !== 'other things' && key !== 'last meeting') {
+                    if (key !== TitleKeys.OTHER_THINGS && key !== TitleKeys.LAST_MEETING) {
                         summary[key]?.push({
                             level,
                             text
